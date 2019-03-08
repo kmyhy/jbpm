@@ -16,23 +16,21 @@
 
 package org.jbpm.examples.humantask;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import org.jbpm.ruleflow.instance.RuleFlowProcessInstance;
 import org.jbpm.test.JBPMHelper;
 import org.kie.api.KieServices;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.KieSession;
-import org.kie.api.runtime.manager.RuntimeEngine;
-import org.kie.api.runtime.manager.RuntimeEnvironment;
-import org.kie.api.runtime.manager.RuntimeEnvironmentBuilder;
-import org.kie.api.runtime.manager.RuntimeManager;
-import org.kie.api.runtime.manager.RuntimeManagerFactory;
+import org.kie.api.runtime.manager.*;
+import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.task.TaskService;
 import org.kie.api.task.UserGroupCallback;
 import org.kie.api.task.model.TaskSummary;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class HumanTaskExample {
 
@@ -46,7 +44,8 @@ public class HumanTaskExample {
             Map<String, Object> params = new HashMap<String, Object>();
             params.put("userId", "krisv");
             params.put("description", "Need a new laptop computer");
-            ksession.startProcess("com.sample.humantask", params);
+            ProcessInstance pi = ksession.startProcess("com.sample.humantask", params);
+            RuleFlowProcessInstance rfpi = (RuleFlowProcessInstance)pi;
 
             // "sales-rep" reviews request
             TaskService taskService = runtime.getTaskService();
@@ -54,6 +53,7 @@ public class HumanTaskExample {
             System.out.println("Sales-rep executing task " + task1.getName() + "(" + task1.getId() + ": " + task1.getDescription() + ")");
             taskService.claim(task1.getId(), "sales-rep");
             taskService.start(task1.getId(), "sales-rep");
+            getVariables(taskService, task1);
             Map<String, Object> results = new HashMap<String, Object>();
             results.put("comment", "Agreed, existing laptop needs replacing");
             results.put("outcome", "Accept");
@@ -63,6 +63,7 @@ public class HumanTaskExample {
             TaskSummary task2 = taskService.getTasksAssignedAsPotentialOwner("krisv", "en-UK").get(0);
             System.out.println("krisv executing task " + task2.getName() + "(" + task2.getId() + ": " + task2.getDescription() + ")");
             taskService.start(task2.getId(), "krisv");
+            getVariables(taskService, task2);
             results = new HashMap<String, Object>();
             results.put("outcome", "Agree");
             taskService.complete(task2.getId(), "krisv", results);
@@ -72,6 +73,7 @@ public class HumanTaskExample {
             System.out.println("john executing task " + task3.getName() + "(" + task3.getId() + ": " + task3.getDescription() + ")");
             taskService.claim(task3.getId(), "john");
             taskService.start(task3.getId(), "john");
+            getVariables(taskService, task3);
             results = new HashMap<String, Object>();
             results.put("outcome", "Agree");
             taskService.complete(task3.getId(), "john", results);
@@ -80,19 +82,25 @@ public class HumanTaskExample {
             TaskSummary task4 = taskService.getTasksAssignedAsPotentialOwner("sales-rep", "en-UK").get(0);
             System.out.println("sales-rep executing task " + task4.getName() + "(" + task4.getId() + ": " + task4.getDescription() + ")");
             taskService.start(task4.getId(), "sales-rep");
-            Map<String, Object> content = taskService.getTaskContent(task4.getId());
-            for (Map.Entry<?, ?> entry : content.entrySet()) {
-                System.out.println(entry.getKey() + " = " + entry.getValue());
-            }
+            getVariables(taskService, task4);
             taskService.complete(task4.getId(), "sales-rep", null);
 
+            getVariables(taskService,task4);
     		System.out.println("Process instance completed");
     		
     		manager.disposeRuntimeEngine(runtime);
+            getVariables(taskService,task4);
         } catch (Throwable t) {
             t.printStackTrace();
         }
         System.exit(0);
+    }
+
+    private static void getVariables(TaskService taskService, TaskSummary task4) {
+        Map<String, Object> content = taskService.getTaskContent(task4.getId());
+        for (Map.Entry<?, ?> entry : content.entrySet()) {
+            System.out.println(entry.getKey() + " = " + entry.getValue());
+        }
     }
 
     private static RuntimeManager getRuntimeManager(String process) {
